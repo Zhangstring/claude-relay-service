@@ -2049,6 +2049,17 @@ router.get('/claude-accounts', authenticateAdmin, async (req, res) => {
   }
 })
 
+router.post('/claude-add', authenticateAdmin, async (req, res) => {
+  try {
+    const { id, ...accountData } = req.body
+    await redis.setClaudeAccount(id, accountData)
+    return res.json({ success: true, data: req.body })
+  } catch (error) {
+    logger.error('❌ Failed to add Claude account:', error)
+    return res.status(500).json({ error: 'Failed to add Claude account', message: error.message })
+  }
+})
+
 // 创建新的Claude账户
 router.post('/claude-accounts', authenticateAdmin, async (req, res) => {
   try {
