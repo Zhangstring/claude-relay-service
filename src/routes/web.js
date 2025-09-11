@@ -303,42 +303,42 @@ router.get('/auth/user', async (req, res) => {
 })
 
 // 🔄 刷新token
-router.post('/auth/refresh', async (req, res) => {
-  try {
-    const token = req.headers['authorization']?.replace('Bearer ', '') || req.cookies?.adminToken
+// router.post('/auth/refresh', async (req, res) => {
+//   try {
+//     const token = req.headers['authorization']?.replace('Bearer ', '') || req.cookies?.adminToken
 
-    if (!token) {
-      return res.status(401).json({
-        error: 'No token provided',
-        message: 'Authentication required'
-      })
-    }
+//     if (!token) {
+//       return res.status(401).json({
+//         error: 'No token provided',
+//         message: 'Authentication required'
+//       })
+//     }
 
-    const sessionData = await redis.getSession(token)
+//     const sessionData = await redis.getSession(token)
 
-    if (!sessionData) {
-      return res.status(401).json({
-        error: 'Invalid token',
-        message: 'Session expired or invalid'
-      })
-    }
+//     if (!sessionData) {
+//       return res.status(401).json({
+//         error: 'Invalid token',
+//         message: 'Session expired or invalid'
+//       })
+//     }
 
-    // 更新最后活动时间
-    sessionData.lastActivity = new Date().toISOString()
-    await redis.setSession(token, sessionData, config.security.adminSessionTimeout)
+//     // 更新最后活动时间
+//     sessionData.lastActivity = new Date().toISOString()
+//     await redis.setSession(token, sessionData, config.security.adminSessionTimeout)
 
-    return res.json({
-      success: true,
-      token,
-      expiresIn: config.security.adminSessionTimeout
-    })
-  } catch (error) {
-    logger.error('❌ Token refresh error:', error)
-    return res.status(500).json({
-      error: 'Token refresh failed',
-      message: 'Internal server error'
-    })
-  }
-})
+//     return res.json({
+//       success: true,
+//       token,
+//       expiresIn: config.security.adminSessionTimeout
+//     })
+//   } catch (error) {
+//     logger.error('❌ Token refresh error:', error)
+//     return res.status(500).json({
+//       error: 'Token refresh failed',
+//       message: 'Internal server error'
+//     })
+//   }
+// })
 
 module.exports = router
