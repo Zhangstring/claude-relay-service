@@ -875,7 +875,7 @@ class ClaudeRelayService {
         responseStream,
         (usageData) => {
           // 在usageCallback中添加accountId
-          usageCallback({ ...usageData, accountId })
+          usageCallback({ ...usageData, accountId, account })
         },
         accountId,
         accountType,

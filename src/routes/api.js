@@ -12,8 +12,12 @@ const logger = require('../utils/logger')
 const redis = require('../models/redis')
 const { getEffectiveModel, parseVendorPrefixedModel } = require('../utils/modelHelper')
 const sessionHelper = require('../utils/sessionHelper')
+const CostCalculator = require('../utils/costCalculator')
+const claudeAccountService = require('../services/claudeAccountService')
 
 const router = express.Router()
+
+const OVERLOAD_COST = 20
 
 // 🔧 共享的消息处理函数
 async function handleMessagesRequest(req, res) {
@@ -186,6 +190,48 @@ async function handleMessagesRequest(req, res) {
                 }
               }
 
+              redis
+                .getAccountSessionWindowUsage(
+                  accountId,
+                  usageData.account.sessionWindowStart,
+                  usageData.account.sessionWindowEnd
+                )
+                .then((windowUsage) => {
+                  // 计算会话窗口的总费用
+                  let totalCost = 0
+                  const modelCosts = {}
+
+                  for (const [modelName, usage] of Object.entries(windowUsage.modelUsage)) {
+                    const usageDataItem = {
+                      input_tokens: usage.inputTokens,
+                      output_tokens: usage.outputTokens,
+                      cache_creation_input_tokens: usage.cacheCreateTokens,
+                      cache_read_input_tokens: usage.cacheReadTokens
+                    }
+
+                    logger.debug(
+                      `💰 Calculating cost for model ${modelName}:`,
+                      JSON.stringify(usageDataItem)
+                    )
+                    const costResult = CostCalculator.calculateCost(usageDataItem, modelName)
+                    logger.debug(`💰 Cost result for ${modelName}: total=${costResult.costs.total}`)
+
+                    modelCosts[modelName] = {
+                      ...usage,
+                      cost: costResult.costs.total
+                    }
+                    totalCost += costResult.costs.total
+                  }
+
+                  logger.api(`Session window total cost: ${totalCost}`)
+                  if (totalCost > OVERLOAD_COST) {
+                    claudeAccountService.updateAccount(accountId, { schedulable: false })
+                    logger.warn('totalCost > OVERLOAD_COST', totalCost)
+                  }
+                })
+                .catch((error) => {
+                  logger.error('Error calculating session window usage:', error)
+                })
               usageDataCaptured = true
               logger.api(
                 `📊 Stream usage recorded (real) - Model: ${model}, Input: ${inputTokens}, Output: ${outputTokens}, Cache Create: ${cacheCreateTokens}, Cache Read: ${cacheReadTokens}, Total: ${inputTokens + outputTokens + cacheCreateTokens + cacheReadTokens} tokens`
